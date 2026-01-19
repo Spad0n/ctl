@@ -122,7 +122,7 @@ namespace ctl {
 	return utf8;
     }
 
-    Filesystem::File* open_file(StringView name, Filesystem::Access access) {
+    Filesystem::File* Filesystem::open_file(StringView name, Filesystem::Access access) {
         SystemAllocator sys;
         ScratchAllocator<1024> scratch{sys};
         auto filename = utf8_to_utf16(scratch, name.cast<const Uint8>());
