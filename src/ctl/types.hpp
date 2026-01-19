@@ -26,19 +26,19 @@ namespace ctl {
     using Hash = Uint64;
     using Unit = struct {};
 
-    constexpr Uint8 operator""_u8(unsigned long long int v) { return v; }
-    constexpr Uint16 operator""_u16(unsigned long long int v) { return v; }
-    constexpr Uint32 operator""_u32(unsigned long long int v) { return v; }
-    constexpr Uint64 operator""_u64(unsigned long long int v) { return v; }
-    constexpr Ulen operator""_ulen(unsigned long long int v) { return v; }
+    constexpr Uint8 operator""_u8(unsigned long long int v) { return static_cast<Uint8>(v); }
+    constexpr Uint16 operator""_u16(unsigned long long int v) { return static_cast<Uint16>(v); }
+    constexpr Uint32 operator""_u32(unsigned long long int v) { return static_cast<Uint32>(v); }
+    constexpr Uint64 operator""_u64(unsigned long long int v) { return static_cast<Uint64>(v); }
+    constexpr Ulen operator""_ulen(unsigned long long int v) { return static_cast<Ulen>(v); }
 
     // Helpers for working with lo and hi parts of integer types.
-    constexpr auto lo(Uint16 v) -> Uint8  { return v; }
-    constexpr auto hi(Uint16 v) -> Uint8  { return v >> 8; }
-    constexpr auto lo(Uint32 v) -> Uint16 { return v; }
-    constexpr auto hi(Uint32 v) -> Uint16 { return v >> 16; }
-    constexpr auto lo(Uint64 v) -> Uint32 { return v; }
-    constexpr auto hi(Uint64 v) -> Uint32 { return v >> 32; }
+    constexpr auto lo(Uint16 v) -> Uint8  { return static_cast<Uint8>(v); }
+    constexpr auto hi(Uint16 v) -> Uint8  { return static_cast<Uint8>(v >> 8); }
+    constexpr auto lo(Uint32 v) -> Uint16 { return static_cast<Uint16>(v); }
+    constexpr auto hi(Uint32 v) -> Uint16 { return static_cast<Uint16>(v >> 16); }
+    constexpr auto lo(Uint64 v) -> Uint32 { return static_cast<Uint32>(v); }
+    constexpr auto hi(Uint64 v) -> Uint32 { return static_cast<Uint32>(v >> 32); }
 
     constexpr auto lo(Sint16 v) -> Uint8  { return lo(Uint16(v)); }
     constexpr auto hi(Sint16 v) -> Uint8  { return hi(Uint16(v)); }

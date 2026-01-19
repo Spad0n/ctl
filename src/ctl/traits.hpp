@@ -60,7 +60,7 @@ namespace ctl {
 
     template<typename T>
     inline constexpr bool is_trivially_destructible =
-#if CTL_HAS_BUILTIN(__is_trivially_destructible)
+#if CTL_HAS_BUILTIN(__is_trivially_destructible) || defined(CTL_COMPILER_MSVC)
 	__is_trivially_destructible(T);
 #elif CTL_HAS_BUILTIN(__has_trivial_destructor)
     __has_trivial_destructor(T);

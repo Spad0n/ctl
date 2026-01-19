@@ -49,6 +49,10 @@
     #define CTL_HAS_INCLUDE(...) 0
 #endif
 
+#if defined(CTL_COMPILER_MSVC)
+#pragma warning(disable : 4200) // Zero-sized array
+#endif
+
 // These are debug build options
 //#define CTL_CFG_USE_MALLOC 1
 

@@ -1,4 +1,6 @@
+#include "ctl/types.hpp"
 #include "ctl/info.hpp"
+#include "ctl/file.hpp"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -285,7 +287,8 @@ namespace ctl {
 
     void Console::print(StringView data) {
 	auto handle = GetStdHandle(STD_OUTPUT_HANDLE);
-	WriteConsoleA(handle, data.data(), data.length(), nullptr, nullptr);
+        DWORD bytes_to_write = static_cast<DWORD>(data.length());
+	WriteConsoleA(handle, data.data(), bytes_to_write, nullptr, nullptr);
     }
 
     Linker::Library* linker_load(StringView name) {
