@@ -108,7 +108,7 @@ namespace ctl {
     // giving the index to the first non-zero bit.
     static inline Uint32 count_trailing_zeros(Uint64 value) {
         DWORD trailing_zero = 0;
-        if (_BitScanForward(&trailing_zero, value)) {
+        if (_BitScanForward64(&trailing_zero, value)) {
             return trailing_zero;
         }
         return 64;

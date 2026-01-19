@@ -22,10 +22,32 @@ target_compile_features(ctl PUBLIC cxx_std_20)
 option(CTL_NO_STDLIBCXX "Disable C++ standard library" ON)
 
 if(MSVC)
+
+  # On windows, you should put this on the root project or else you see warnings
+  #foreach(flag_var
+  #        CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
+  #        CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+  #  
+  #  # Remove /GR
+  #  if(${flag_var} MATCHES "/GR")
+  #    string(REGEX REPLACE "/GR" "" ${flag_var} "${${flag_var}}")
+  #  endif()
+  #  
+  #  # Remove /EHsc (ou /EHs)
+  #  if(${flag_var} MATCHES "/EHsc")
+  #    string(REGEX REPLACE "/EHsc" "" ${flag_var} "${${flag_var}}")
+  #  endif()
+  #  if(${flag_var} MATCHES "/EHs")
+  #    string(REGEX REPLACE "/EHs" "" ${flag_var} "${${flag_var}}")
+  #  endif()
+  #  
+  #endforeach()
+
   target_compile_options(ctl
     PUBLIC
-    /EHs-
-    /GR-
+    /EHs-	# disable exceptions
+    /GR-	# disable RTTI
+    /wd4530	# disbale warning "C++ exception handler used..." if necessary
   )
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   # GCC / Clang
