@@ -6,17 +6,21 @@
 
 namespace ctl {
 
-    // Slice is a convenience type around a pointer and a length. Think of it like a
-    // span or a view. Specialization for T = const char is implicitly provided so
-    // that Slice<const char> is the same as StringView.
+    /// @brief A non-owning view over a contiguous block of memory.
+    /// 
+    /// Equivalent to `std::span` or `std::string_view`. 
+    /// `Slice<const char>` is aliased to `StringView`.
     template<typename T>
     struct Slice {
 	constexpr Slice() = default;
+
+        /// @brief Constructs a slice from a pointer and a length.
 	constexpr Slice(T* data, Ulen length)
             : data_{data}
             , length_{length}
 	{}
 
+        /// @brief Constructs a slice from a static array.
 	template<Ulen E>
 	constexpr Slice(T (&data)[E])
             : data_{data}
@@ -27,6 +31,8 @@ namespace ctl {
             }
 	}
 
+        /// @brief Constructs a slice from a C-string (calculates length via strlen).
+        /// Only available for Slice<const char>.
         constexpr Slice(const char* cstr) requires (is_same<T, const char>)
             : data_(cstr)
             , length_{0}
@@ -37,17 +43,6 @@ namespace ctl {
                 }
             }
         }
-
-        //constexpr Slice(Allocator& allocator, Ulen length)
-        //    : data_{allocator.allocate<T>(length, true)}
-        //    , length_{length}
-        //{}
-
-        //void deinit(Allocator& allocator) {
-        //    allocator.deallocate(data_, length_);
-        //    data_ = nullptr;
-        //    length_ = 0;
-        //}
 
 	constexpr Slice(const Slice& other)
             : data_{other.data_}
@@ -63,12 +58,17 @@ namespace ctl {
 	[[nodiscard]] CTL_FORCEINLINE constexpr T& operator[](Ulen index) { return data_[index]; }
 	[[nodiscard]] CTL_FORCEINLINE constexpr const T& operator[](Ulen index) const { return data_[index]; }
 
+        /// @brief Creates a sub-slice starting at `offset`.
 	constexpr Slice slice(Ulen offset) const {
             return Slice{data_ + offset, length_ - offset};
 	}
+
+        /// @brief Creates a sub-slice with the first `length` elements.
 	constexpr Slice truncate(Ulen length) const {
             return Slice{data_, length};
 	}
+
+        /// @brief Creates a sub-slice defined by [start, end_excluded).
         constexpr Slice subrange(Ulen start, Ulen end_excluded) const {
             return slice(start).truncate(end_excluded - start);
         }
@@ -85,12 +85,15 @@ namespace ctl {
 	[[nodiscard]] CTL_FORCEINLINE constexpr T* data() { return data_; }
 	[[nodiscard]] CTL_FORCEINLINE constexpr const T* data() const { return data_; }
 
+        /// @brief Reinterprets the slice data as a slice of type U.
+        /// @warning Updates length to match `sizeof(U)`. Ensure alignment and size compatibility.
 	template<typename U>
 	CTL_FORCEINLINE Slice<U> cast() {
             const auto ptr = reinterpret_cast<U*>(data_);
             return Slice<U> { ptr, (length_ * sizeof(T)) / sizeof(U) };
 	}
 
+        /// @brief Reinterprets the slice data as a slice of type const U.
 	template<typename U>
 	CTL_FORCEINLINE Slice<const U> cast() const {
             const auto ptr = reinterpret_cast<const U*>(data_);
@@ -118,32 +121,6 @@ namespace ctl {
 	T*   data_   = nullptr;
 	Ulen length_ = 0;
     };
-    
-    template<typename T>
-    Slice<T> make_slice(Allocator& alloc, Ulen count, Bool zero = false) {
-        T* ptr = alloc.allocate<T>(count, zero);
-
-        if constexpr(!TriviallyDestructible<T>) {
-            for (Ulen i = 0; i < count; i++) {
-                new (ptr + i) T();
-            }
-        }
-
-        return Slice<T>(ptr, count);
-    }
-
-    template<typename T>
-    void free_slice(Allocator& alloc, Slice<T> slice) {
-        if (slice.data() == nullptr) return;
-
-        if constexpr(!TriviallyDestructible<T>) {
-            for (Ulen i = 0; i < slice.length(); i++) {
-                slice[i].~T();
-            }
-        }
-
-        alloc.deallocate(slice.data(), slice.length());
-    }
 
 } // namespace ctl
 

@@ -6,6 +6,8 @@
 
 namespace ctl {
 
+    /// @brief A handle to an object stored in a Pool.
+    /// safer than a raw pointer as it is just an index.
     struct PoolRef {
 	Uint32 index;
     };
@@ -19,15 +21,28 @@ namespace ctl {
     // the PoolRef to operator[] like a key.
     struct Stream;
 
+    /// @brief A fixed-size, fixed-capacity object allocator (Object Pool).
+    /// 
+    /// Memory is contiguous. Objects are referenced by `PoolRef` indices.
+    /// Useful for game entities, particles, or nodes to avoid fragmentation.
     struct Pool {
+        /// @brief Creates a new Pool.
+        /// @param allocator Backing allocator for the pool memory.
+        /// @param size Size of a single object in bytes.
+        /// @param capacity Maximum number of objects.
+        /// @return A new Pool or empty on allocation failure.
 	static Maybe<Pool> create(Allocator& allocator, Ulen size, Ulen capacity);
 
+        /// @brief Loads a Pool from a binary stream.
 	static Maybe<Pool> load(Allocator& allocator, Stream& stream);
+
+        /// @brief Serializes the Pool state (and data) to a binary stream.
 	Bool save(Stream& stream) const;
 
 	Pool(Pool&& other);
 	~Pool() { drop(); }
 
+        /// @brief Returns the number of active objects in the pool.
 	[[nodiscard]] CTL_FORCEINLINE constexpr auto length() const { return length_; }
 	[[nodiscard]] CTL_FORCEINLINE constexpr auto is_empty() const { return length_ == 0; }
 
@@ -38,10 +53,18 @@ namespace ctl {
             return *new (drop(), Nat{}) Pool{move(other)};
 	}
 
+        /// @brief Allocates a slot for a new object.
+        /// @return A reference (index) to the allocated slot, or empty if full.
 	Maybe<PoolRef> allocate();
+
+        /// @brief Deallocates the slot at the given reference.
 	void deallocate(PoolRef ref);
 
+        /// @brief Accesses the memory at the given reference.
+        /// @return Raw pointer to the object data (must be cast to T*).
 	CTL_FORCEINLINE constexpr auto operator[](PoolRef ref) { return data_ + size_ * ref.index; }
+
+        /// @brief Accesses the memory at the given reference (const).
 	CTL_FORCEINLINE constexpr auto operator[](PoolRef ref) const { return data_ + size_ * ref.index; }
 
     private:

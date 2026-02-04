@@ -149,5 +149,59 @@ namespace ctl {
             return 4;
         }
     }
+    
+    Ulen Rune::decode_utf8(Slice<const Uint8> src, Rune& rune) {
+        if (src.length() == 0) return 0;
 
+        const Uint8* data = src.data();
+        Uint8 b0 = data[0];
+
+        // 1 Byte (ASCII) : 0xxxxxxx
+        if (b0 < 0x80) {
+            rune = Rune(static_cast<Uint32>(b0));
+            return 1;
+        }
+
+        // 2 Bytes : 110xxxxx 10xxxxxx
+        if ((b0 & 0xE0) == 0xC0) {
+            if (src.length() < 2) return 0;
+            if ((data[1] & 0xC0) != 0x80) return 0; // invalid byte continuation
+            
+            Uint32 res = ((b0 & 0x1F) << 6) | (data[1] & 0x3F);
+            if (res < 0x80) return 0; // encoding "overlong"
+            
+            rune = Rune(res);
+            return 2;
+        }
+
+        // 3 Bytes : 1110xxxx 10xxxxxx 10xxxxxx
+        if ((b0 & 0xF0) == 0xE0) {
+            if (src.length() < 3) return 0;
+            if ((data[1] & 0xC0) != 0x80 || (data[2] & 0xC0) != 0x80) return 0;
+
+            Uint32 res = ((b0 & 0x0F) << 12) | ((data[1] & 0x3F) << 6) | (data[2] & 0x3F);
+            if (res < 0x800) return 0; // Overlong
+            if (res >= 0xD800 && res <= 0xDFFF) return 0; // Surrogates forbidden in UTF-8
+
+            rune = Rune(res);
+            return 3;
+        }
+
+        // 4 Bytes : 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+        if ((b0 & 0xF8) == 0xF0) {
+            if (src.length() < 4) return 0;
+            if ((data[1] & 0xC0) != 0x80 || (data[2] & 0xC0) != 0x80 || (data[3] & 0xC0) != 0x80) return 0;
+
+            Uint32 res = ((b0 & 0x07) << 18) | ((data[1] & 0x3F) << 12) | 
+                ((data[2] & 0x3F) << 6) | (data[3] & 0x3F);
+            if (res < 0x10000 || res > 0x10FFFF) return 0; // Overlong ou out of page
+
+            rune = Rune(res);
+            return 4;
+        }
+
+        return 0;
+    }
+
+    
 } // namespace ctl

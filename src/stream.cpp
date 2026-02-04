@@ -10,16 +10,20 @@ namespace ctl {
 	return FileStream { move(*file) };
     }
 
-    Bool FileStream::write(Slice<const Uint8> data) {
-	const auto nb = file_.write(offset_, data);
-	offset_ += nb;
-	return nb == data.length();
+    void FileStream::close() {
+        file_.close();
     }
 
-    Bool FileStream::read(Slice<Uint8> data) {
+    Ulen FileStream::write(Slice<const Uint8> data) {
+	const auto nb = file_.write(offset_, data);
+	offset_ += nb;
+        return Ulen(nb);
+    }
+
+    Ulen FileStream::read(Slice<Uint8> data) {
 	const auto nb = file_.read(offset_, data);
 	offset_ += nb;
-	return nb == data.length();
+        return Ulen(nb);
     }
 
     Uint64 FileStream::tell() const {

@@ -117,4 +117,12 @@ namespace ctl {
 	}
 	return StringView { build_.slice() };
     }
+
+    void StringBuilder::destroy() {
+        build_.destroy();
+    }
+
+    void StringBuilder::clear() {
+        build_.clear();
+    }
 } // namespace ctl

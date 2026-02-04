@@ -10,31 +10,38 @@ namespace ctl {
     template<typename T>
     struct Maybe;
 
-    // Concept that checks for T::copy(allocator) method which returns a Maybe<T>.
+    /// @brief Concept checking if T has a `copy(Allocator&)` method returning `Maybe<T>`.
+    /// Used for deep copying complex types like Arrays inside a Maybe.
     template<typename T>
     concept MaybeCopyable = requires(const T& value) {
 	{ value.copy(declval<Allocator&>()) } -> Same<Maybe<T>>;
     };
 
-    // Simple optional type, use like Maybe<T>, check if valid with if (maybe) or
-    // if (maybe.is_valid()). The underlying T can be extracted (unboxed) with the
-    // use of the -> or * operators, i.e maybe->thing or (*maybe).thing, where thing
-    // is a field of T.
+    /// @brief A vocabulary type representing an optional value.
+    /// 
+    /// Can either hold a value of type T or nothing.
+    /// Comparable to `std::optional`.
+    ///
+    /// @tparam T The type of the value to hold.
     template<typename T>
     struct Maybe {
+        /// @brief Constructs an empty Maybe (no value).
 	constexpr Maybe()
             : as_nat_{}
-	{
-	}
+	{}
+
+        /// @brief Constructs an empty Maybe using the Unit type.
 	constexpr Maybe(Unit)
             : as_nat_{}
-	{
-	}
+	{}
+
+        /// @brief Constructs a Maybe containing a value (moves the value in).
 	constexpr Maybe(T&& value)
             : as_value_{move(value)}
             , valid_{true}
-	{
-	}
+	{}
+
+        /// @brief Move constructor. Transfers ownership of the value.
 	constexpr Maybe(Maybe&& other)
             : valid_{exchange(other.valid_, false)}
 	{
@@ -45,13 +52,19 @@ namespace ctl {
                 }
             }
 	}
+
+        /// @brief Assigns a new value, destroying the old one if it existed.
 	constexpr Maybe& operator=(T&& value) {
             return *new(drop(), Nat{}) Maybe{move(value)};
 	}
+
+        /// @brief Move assignment.
 	constexpr Maybe& operator=(Maybe&& value) {
             return *new(drop(), Nat{}) Maybe{move(value)};
 	}
 
+        /// @brief Creates a copy of the value using the copy constructor.
+        /// @return A new Maybe containing a copy, or empty if this was empty.
 	Maybe<T> copy()
             requires CopyConstructible<T>
 	{
@@ -61,6 +74,8 @@ namespace ctl {
             return Maybe { as_value_ };
 	}
 
+        /// @brief Creates a deep copy of the value using a specific allocator.
+        /// Useful for container types (e.g. `Maybe<Array<int>>`).
 	Maybe<T> copy(Allocator& allocator)
             requires MaybeCopyable<T>
 	{
@@ -70,12 +85,22 @@ namespace ctl {
             return as_value_.copy(allocator);
 	}
 
+        /// @brief Checks if the Maybe contains a value.
 	[[nodiscard]] CTL_FORCEINLINE constexpr auto is_valid() const { return valid_; }
+
+        /// @brief Implicit boolean conversion checking validity.
+        /// @code if (maybe) { ... } @endcode
 	[[nodiscard]] CTL_FORCEINLINE constexpr operator Bool() const { return is_valid(); }
+
+        /// @brief Accesses the contained value. Undefined behavior if empty.
 	[[nodiscard]] CTL_FORCEINLINE constexpr T& value() { return as_value_; }
 	[[nodiscard]] CTL_FORCEINLINE constexpr const T& value() const { return as_value_; }
+
+        /// @brief Dereferences the contained value.
 	[[nodiscard]] CTL_FORCEINLINE constexpr T& operator*() { return as_value_; }
 	[[nodiscard]] CTL_FORCEINLINE constexpr const T& operator*() const { return as_value_; }
+
+        /// @brief Accesses members of the contained value.
 	[[nodiscard]] CTL_FORCEINLINE constexpr T* operator->() { return &as_value_; }
 	[[nodiscard]] CTL_FORCEINLINE constexpr const T* operator->() const { return &as_value_; }
 
@@ -87,11 +112,13 @@ namespace ctl {
 
 	constexpr ~Maybe() requires TriviallyDestructible<T> = default;
 
+        /// @brief Destroys the contained value (if any) and makes the Maybe empty.
 	CTL_FORCEINLINE void reset() {
             drop();
             valid_ = false;
 	}
 
+        /// @brief Constructs a new value in-place using the provided arguments.
 	template<typename... Ts>
 	void emplace(Ts&&... args) {
             new (drop(), Nat{}) Maybe{T{forward<Ts>(args)...}};

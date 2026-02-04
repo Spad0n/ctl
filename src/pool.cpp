@@ -41,7 +41,7 @@ namespace ctl {
 
     Maybe<Pool> Pool::load(Allocator& allocator, Stream& stream) {
 	PoolHeader header;
-	if (!stream.read(Slice{&header, 1}.cast<Uint8>())) {
+	if (stream.read(Slice{&header, 1}.cast<Uint8>()) != sizeof(header)) {
             return {};
 	}
 	if (Slice<const Uint8>{header.magic} != Slice{"pool"}.cast<const Uint8>()) {
@@ -59,8 +59,8 @@ namespace ctl {
             allocator.deallocate(data, n_bytes);
             return {};
 	}
-	if (!stream.read(Slice{used, n_words}.cast<Uint8>()) ||
-	    !stream.read(Slice{data, n_bytes}.cast<Uint8>()))
+	if (stream.read(Slice{used, n_words}.cast<Uint8>()) != (n_words * sizeof(Word)) ||
+	    stream.read(Slice{data, n_bytes}.cast<Uint8>()) != (n_bytes * sizeof(Uint8)))
             {
 		allocator.deallocate(used, n_words);
 		allocator.deallocate(data, n_bytes);
@@ -84,9 +84,17 @@ namespace ctl {
             .size     = Uint64(size_),
             .capacity = Uint64(capacity_),
 	};
-	return stream.write(Slice{&header, 1}.cast<const Uint8>())
-	    && stream.write(Slice{used_, capacity_ / BITS}.cast<const Uint8>())
-	    && stream.write(Slice{data_, size_ * capacity_}.cast<const Uint8>());
+
+        auto h_slice = Slice{&header, 1}.cast<const Uint8>();
+        if (stream.write(h_slice) != h_slice.length()) return false;
+        
+        auto u_slice = Slice{used_, capacity_ / BITS}.cast<const Uint8>();
+        if (stream.write(u_slice) != u_slice.length()) return false;
+        
+        auto d_slice = Slice{data_, size_ * capacity_}.cast<const Uint8>();
+        if (stream.write(d_slice) != d_slice.length()) return false;
+
+        return true;
     }
 
     Pool::Pool(Pool&& other)

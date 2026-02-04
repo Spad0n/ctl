@@ -20,8 +20,12 @@ namespace ctl {
     using Sint64 = signed long long;
     using Float64 = double;
     using Float32 = float;
+
+    /// @brief Unsigned size type (equivalent to size_t).
     using Ulen = decltype(sizeof 0);
     using Bool = bool;
+
+    /// @brief Raw memory address.
     using Address = unsigned long long;
     using Hash = Uint64;
     using Unit = struct {};
@@ -33,8 +37,13 @@ namespace ctl {
     constexpr Ulen operator""_ulen(unsigned long long int v) { return static_cast<Ulen>(v); }
 
     // Helpers for working with lo and hi parts of integer types.
+
+    /// @brief Returns the lower half of the integer.
     constexpr auto lo(Uint16 v) -> Uint8  { return static_cast<Uint8>(v); }
+
+    /// @brief Returns the upper half of the integer.
     constexpr auto hi(Uint16 v) -> Uint8  { return static_cast<Uint8>(v >> 8); }
+
     constexpr auto lo(Uint32 v) -> Uint16 { return static_cast<Uint16>(v); }
     constexpr auto hi(Uint32 v) -> Uint16 { return static_cast<Uint16>(v >> 16); }
     constexpr auto lo(Uint64 v) -> Uint32 { return static_cast<Uint32>(v); }

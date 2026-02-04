@@ -18,7 +18,7 @@ namespace ctl {
     // bitset. That is ((used[i/32] & (1 << (i%32)) != 0 indicates if pool i exists.
     Maybe<Slab> Slab::load(Allocator& allocator, Stream& stream) {
 	SlabHeader header;
-	if (!stream.read(Slice{&header, 1}.cast<Uint8>())) {
+	if (stream.read(Slice{&header, 1}.cast<Uint8>()) != sizeof(header)) {
             return {};
 	}
 	if (Slice<const Uint8>{header.magic} != Slice{"slab"}.cast<const Uint8>()) {
@@ -33,7 +33,7 @@ namespace ctl {
 	if (!used) {
             return {};
 	}
-	if (!stream.read(Slice{used, n_words}.cast<Uint8>())) {
+	if (stream.read(Slice{used, n_words}.cast<Uint8>()) != (n_words * sizeof(Uint32))) {
             return {};
 	}
 	auto n_caches = Ulen(header.caches);
@@ -82,11 +82,12 @@ namespace ctl {
             }
             i++;
 	}
-	if (!stream.write(Slice{&header, 1}.cast<const Uint8>())
-            || !stream.write(Slice{used, n_words}.cast<const Uint8>()))
-            {
-		return false;
-            }
+        auto h_slice = Slice{&header, 1}.cast<const Uint8>();
+        if (stream.write(h_slice) != h_slice.length()) return false;
+
+        auto u_slice = Slice{used, n_words}.cast<const Uint8>();
+        if (stream.write(u_slice) != u_slice.length()) return false;
+
 	for (const auto& cache : caches_) {
             if (cache && !cache->save(stream)) {
                 return false;
