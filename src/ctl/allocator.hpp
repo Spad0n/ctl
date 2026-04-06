@@ -181,7 +181,7 @@ namespace ctl {
             ArenaAllocator arena_;
             Block*         prev_ = nullptr;
             Block*         next_ = nullptr;
-            Uint8          data_[];
+            alignas(16) Uint8 data_[];
 	};
 	Allocator& allocator_;
 	Block*     head_ = nullptr;

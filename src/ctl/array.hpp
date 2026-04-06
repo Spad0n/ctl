@@ -58,6 +58,10 @@ namespace ctl {
                     for (Ulen i = length_ - 1; i > length; i--) {
                         data_[i].~T();
                     }
+                } else if constexpr (HasDestroyMethod<T>) {
+                    for (Ulen i = length_ - 1; i > length; i--) {
+                        data_[i].destroy();
+                    }
                 }
             } else if (length > length_) {
                 if (!reserve(length)) {
@@ -90,7 +94,7 @@ namespace ctl {
             for (Ulen i = 0; i < length_; i++) {
                 new (data + i, Nat{}) T{move(data_[i])};
             }
-            destroy();
+            drop();
             data_ = data;
             capacity_ = capacity;
             return true;
@@ -164,6 +168,8 @@ namespace ctl {
 	void pop_back() {
             if constexpr (!TriviallyDestructible<T>) {
                 data_[length_ - 1].~T();
+            } else if constexpr (HasDestroyMethod<T>) {
+                data_[length_ - 1].destroy();
             }
             length_--;
 	}
@@ -172,6 +178,8 @@ namespace ctl {
 	void pop_front() {
             if constexpr (!TriviallyDestructible<T>) {
                 data_[0].~T();
+            } else if constexpr (HasDestroyMethod<T>) {
+                data_[0].destroy();
             }
             for (Ulen i = 1; i < length_; i--) {
                 data_[i - 1] = move(data_[i]);
@@ -225,18 +233,34 @@ namespace ctl {
 	Array* destroy() {
             destruct();
             allocator_.deallocate(data_, capacity_);
+            data_ = nullptr;
+            length_ = 0;
+            capacity_ = 0;
             return this;
 	}
 
     private:
         /// @brief Helper to call destructors on all active elements.
 	void destruct() {
-            if constexpr (!TriviallyDestructible<T>) {
-                for (Ulen i = length_ - 1; i < length_; i--) {
-                    data_[i].~T();
+            if constexpr(HasDestroyMethod<T> || !TriviallyDestructible<T>) {
+                for (Ulen i = length_; i > 0; i--) {
+                    T& item = data_[i - 1];
+
+                    if constexpr(HasDestroyMethod<T>) {
+                        item.destroy();
+                    }
+
+                    if constexpr(!TriviallyDestructible<T>) {
+                        item.~T();
+                    }
                 }
             }
 	}
+
+        void drop() {
+            destruct();
+            allocator_.deallocate(data_, capacity_);
+        }
 
 	T*         data_     = nullptr;
 	Ulen       length_   = 0;

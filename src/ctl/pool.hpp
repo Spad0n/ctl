@@ -40,7 +40,9 @@ namespace ctl {
 	Bool save(Stream& stream) const;
 
 	Pool(Pool&& other);
-	~Pool() { drop(); }
+
+        /// @brief Destroys elements and deallocates memory.
+        void destroy();
 
         /// @brief Returns the number of active objects in the pool.
 	[[nodiscard]] CTL_FORCEINLINE constexpr auto length() const { return length_; }

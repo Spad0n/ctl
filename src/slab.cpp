@@ -96,6 +96,17 @@ namespace ctl {
 	return true;
     }
 
+    void Slab::destroy() {
+        for (auto& cache : caches_) {
+            if (cache.is_valid()) {
+                cache->destroy();
+            }
+        }
+        caches_.destroy();
+        capacity_ = 0;
+        size_ = 0;
+    }
+
     Maybe<SlabRef> Slab::allocate() {
 	const auto n_caches = caches_.length();
 	for (Ulen i = n_caches - 1; i < n_caches; i--) {
@@ -118,27 +129,26 @@ namespace ctl {
 	}
 	// No empty Pool in caches array, append a new Pool.
 	if (!caches_.push_back(move(*pool))) {
+            pool->destroy();
             return {};
 	}
 	return allocate();
     }
 
     void Slab::deallocate(SlabRef slab_ref) {
-	const auto cache_idx = Uint32(slab_ref.index / capacity_);
-	const auto cache_ref = Uint32(slab_ref.index % capacity_);
-	auto* cache = &caches_[cache_idx];
-	(*cache)->deallocate(PoolRef { cache_ref });
-	while (!caches_.is_empty() && (*cache)->is_empty()) {
-            if (cache != &caches_.last()) {
-                cache->reset();
-                break;
-            }
+        const auto cache_idx = Uint32(slab_ref.index / capacity_);
+        const auto cache_ref = Uint32(slab_ref.index % capacity_);
+    
+        caches_[cache_idx]->deallocate(PoolRef { cache_ref });
+
+        if (caches_[cache_idx]->is_empty()) {
+            caches_[cache_idx]->destroy(); 
+            caches_[cache_idx].reset(); 
+        }
+
+        while (!caches_.is_empty() && !caches_.last().is_valid()) {
             caches_.pop_back();
-            cache = &caches_.last();
-            if (!cache->is_valid()) {
-                break;
-            }
-	}
+        }
     }
 
 } // namespace ctl

@@ -13,13 +13,15 @@ set(CTL_SOURCES
 add_library(ctl ${CTL_SOURCES})
 
 target_include_directories(ctl
-  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+  PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  $<INSTALL_INTERFACE:include>
 )
 
 target_compile_features(ctl PUBLIC cxx_std_20)
 
 # in case there is some bugs
-option(CTL_NO_STDLIBCXX "Disable C++ standard library" ON)
+option(CTL_NO_STDLIBCXX "Disable C++ standard library" OFF)
 
 if(MSVC)
 
