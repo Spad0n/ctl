@@ -139,8 +139,6 @@ namespace ctl {
                 // RESIZEINPLACE doesn't appear to have a mechanism to specify the growed
                 // area is initialized, so do it manually here.
                 VALGRIND_MAKE_MEM_DEFINED(src_addr + req_old_len, req_delta);
-            }
-            if (zero) {
                 memzero(src_addr + req_old_len, req_delta);
             }
             cursor_ += delta;
@@ -189,7 +187,6 @@ namespace ctl {
             tail_ = node;
             head_ = node;
         }
-        tail_ = node;
         return true;
     }
 

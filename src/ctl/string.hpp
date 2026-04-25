@@ -67,9 +67,6 @@ namespace ctl {
         /// @brief Returns the last inserted string token.
 	StringView last() const { return last_; } // Last inserted string token
 
-        /// @brief Frees the underlying memory.
-        void destroy();
-
         /// @brief Clears content (alias for reset).
         void clear();
     private:

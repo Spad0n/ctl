@@ -80,11 +80,6 @@ namespace ctl {
     ([] { static_assert(false, "Cannot implement is_trivially_destructible"); }, false);
 #endif
 
-    template<typename T>
-    concept HasDestroyMethod = requires(T& t) {
-        { t.destroy() };
-    };
-
     /// @brief Concept ensuring T has a trivial destructor (no-op).
     template<typename T>
     concept TriviallyDestructible = is_trivially_destructible<T>;

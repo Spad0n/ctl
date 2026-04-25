@@ -105,23 +105,7 @@ namespace ctl {
 	, data_{exchange(other.data_, nullptr)}
 	, used_{exchange(other.used_, nullptr)}
 	, last_{exchange(other.last_, 0)}
-    {
-    }
-
-    void Pool::destroy() {
-        if (data_) {
-            allocator_.deallocate(data_, size_ * capacity_);
-            data_ = nullptr;
-        }
-
-        if (used_) {
-            allocator_.deallocate(used_, capacity_ / BITS);
-            used_ = nullptr;
-        }
-        capacity_ = 0;
-        size_ = 0;
-        length_ = 0;
-    }
+    {}
 
 #if defined(CTL_COMPILER_MSVC)
 
