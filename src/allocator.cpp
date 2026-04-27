@@ -159,11 +159,11 @@ namespace ctl {
     }
 
     TemporaryAllocator::~TemporaryAllocator() {
-        for (auto node = tail_; node; /**/) {
+        for (auto node = head_; node; /**/) {
             const auto addr = reinterpret_cast<Address>(node);
-            const auto prev = node->prev_;
+            const auto next = node->next_;
             allocator_.free(addr, sizeof(Block) + node->arena_.length());
-            node = prev;
+            node = next;
         }
     }
 

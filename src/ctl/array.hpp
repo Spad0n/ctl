@@ -193,6 +193,8 @@ namespace ctl {
         /// @brief Destroys all elements and releases the memory to the allocator.
 	void reset() {
             drop();
+            length_ = 0;
+            capacity_ = 0;
 	}
 
         /// @brief Returns a pointer to the underlying data.
@@ -236,9 +238,6 @@ namespace ctl {
         Array* drop() {
             destruct();
             allocator_.deallocate(data_, capacity_);
-            data_     = nullptr;
-            length_   = 0;
-            capacity_ = 0;
             return this;
         }
 
