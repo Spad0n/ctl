@@ -5,6 +5,14 @@
 #include <string.h>
 #endif
 
+#if defined(CTL_ARCH_X64)
+#include <emmintrin.h>
+#pragma message("INFO: Using SIMD x86_64")
+#elif defined(CTL_ARCH_ARM64)
+#include <arm_neon.h>
+#pragma message("INFO: Using SIMD ARM64")
+#endif
+
 #if CTL_HAS_FEATURE(address_sanitizer) && defined(__SANITIZE_ADDRESS__)
     extern "C" void __asan_poison_memory_region(void const volatile*, decltype(sizeof 0));
     extern "C" void __asan_unpoison_memory_region(void const volatile*, decltype(sizeof 0));
@@ -36,30 +44,145 @@ namespace ctl {
 #define ASSERT(...)
 
     void Allocator::memzero(Address addr, Ulen len) {
-#if defined(CTL_CFG_USE_MALLOC)
-#pragma message("INFO: USING memset from libc")
-        memset(reinterpret_cast<void*>(addr), 0, len);
+        auto dst = reinterpret_cast<Uint8*>(addr);
+
+        if (len < 16) {
+            if (len == 0) return;
+            if (len >= 8) {
+                *reinterpret_cast<Uint64*>(dst)           = 0_u64;
+                *reinterpret_cast<Uint64*>(dst + len - 8) = 0_u64;
+            } else if (len >= 4) {
+                *reinterpret_cast<Uint32*>(dst)           = 0_u32;
+                *reinterpret_cast<Uint32*>(dst + len - 4) = 0_u32;
+            } else if (len >= 2) {
+                *reinterpret_cast<Uint16*>(dst)           = 0_u16;
+                *reinterpret_cast<Uint16*>(dst + len - 2) = 0_u16;
+            } else {
+                dst[0] = 0_u8;
+            }
+            return;
+        }
+
+#if defined(CTL_ARCH_X64)
+        const __m128i zero = _mm_setzero_si128();
+        Ulen i = 0;
+        for (; i + 64 <= len; i += 64) {
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(dst + i),      zero);
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(dst + i + 16), zero);
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(dst + i + 32), zero);
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(dst + i + 48), zero);
+        }
+
+        // Middle remainder: 16 bytes per iteration
+        for (; i + 16 <= len; i += 16) {
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(dst + i), zero);
+        }
+
+        // Tail: overlapping 16-byte store handle 1..15 remaining bytes.
+        if (i < len) {
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(dst + len - 16), zero);
+        }
+#elif defined(CTL_ARCH_ARM64)
+        const uint8x16_t zero = vdupq_n_u8(0);
+        Ulen i = 0;
+        for (; i + 64 <= len; i += 64) {
+            vst1q_u8(dst + i,      zero);
+            vst1q_u8(dst + i + 16, zero);
+            vst1q_u8(dst + i + 32, zero);
+            vst1q_u8(dst + i + 48, zero);
+        }
+        for (; i + 16 <= len; i += 16) {
+            vst1q_u8(dst + i, zero);
+        }
+
+        // Tail: overlapping 16-byte store handle 1..15 remaining bytes.
+        if (i < len) {
+            vst1q_u8(dst + len - 16, zero);
+        }
 #else
+        // Scalar fallback for unknown architectures: word + byte loop
         const auto n_words = len / sizeof(Uint64);
         const auto n_bytes = len % sizeof(Uint64);
-        const auto dst_w = reinterpret_cast<Uint64*>(addr);
+        const auto dst_w = reinterpret_cast<Uint64*>(dst);
         const auto dst_b = reinterpret_cast<Uint8*>(dst_w + n_words);
         for (Ulen i = 0; i < n_words; i++) dst_w[i] = 0_u64;
         for (Ulen i = 0; i < n_bytes; i++) dst_b[i] = 0_u8;
 #endif
     }
 
-    void Allocator::memcopy(Address dst, Address src, Ulen len) {
-#if defined(CTL_CFG_USE_MALLOC)
-#pragma message("INFO: USING memcpy from libc")
-        const auto dst_b = reinterpret_cast<void*>(dst);
-        const auto src_b = reinterpret_cast<const void*>(src);
-        memcpy(dst_b, src_b, len);
+    void Allocator::memcopy(Address dst_addr, Address src_addr, Ulen len) {
+        auto dst = reinterpret_cast<Uint8*>(dst_addr);
+        auto src = reinterpret_cast<Uint8*>(src_addr);
+
+        if (len < 16) {
+            if (len == 0) return;
+            if (len >= 8) {
+                const Uint64 a = *reinterpret_cast<const Uint64*>(src);
+                const Uint64 b = *reinterpret_cast<const Uint64*>(src + len - 8);
+                *reinterpret_cast<Uint64*>(dst)           = a;
+                *reinterpret_cast<Uint64*>(dst + len - 8) = b;
+            } else if (len >= 4) {
+                const Uint32 a = *reinterpret_cast<const Uint32*>(src);
+                const Uint32 b = *reinterpret_cast<const Uint32*>(src + len - 4);
+                *reinterpret_cast<Uint32*>(dst)           = a;
+                *reinterpret_cast<Uint32*>(dst + len - 4) = b;
+            } else if (len >= 2) {
+                const Uint16 a = *reinterpret_cast<const Uint16*>(src);
+                const Uint16 b = *reinterpret_cast<const Uint16*>(src + len - 2);
+                *reinterpret_cast<Uint16*>(dst)           = a;
+                *reinterpret_cast<Uint16*>(dst + len - 2) = b;
+            } else {
+                dst[0] = src[0];
+            }
+            return;
+        }
+
+#if defined(CTL_ARCH_X64)
+        Ulen i = 0;
+        for (; i + 64 <= len; i += 64) {
+            const __m128i a = _mm_loadu_si128(reinterpret_cast<const __m128i*>(src + i));
+            const __m128i b = _mm_loadu_si128(reinterpret_cast<const __m128i*>(src + i + 16));
+            const __m128i c = _mm_loadu_si128(reinterpret_cast<const __m128i*>(src + i + 32));
+            const __m128i d = _mm_loadu_si128(reinterpret_cast<const __m128i*>(src + i + 48));
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(dst + i),      a);
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(dst + i + 16), b);
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(dst + i + 32), c);
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(dst + i + 48), d);
+        }
+
+        for (; i + 16 <= len; i += 16) {
+            const __m128i v = _mm_loadu_si128(reinterpret_cast<const __m128i*>(src + i));
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(dst + i), v);
+        }
+
+        if (i < len) {
+            const __m128i v = _mm_loadu_si128(reinterpret_cast<const __m128i*>(src + len - 16));
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(dst + len - 16), v);
+        }
+#elif defined(CTL_ARCH_ARM64)
+        Ulen i = 0;
+        for (; i + 64 <= len; i += 64) {
+            const uint8x16_t a = vld1q_u8(src + i);
+            const uint8x16_t b = vld1q_u8(src + i + 16);
+            const uint8x16_t c = vld1q_u8(src + i + 32);
+            const uint8x16_t d = vld1q_u8(src + i + 48);
+            vst1q_u8(dst + i,      a);
+            vst1q_u8(dst + i + 16, b);
+            vst1q_u8(dst + i + 32, c);
+            vst1q_u8(dst + i + 48, d);
+        }
+
+        for (; i + 16 <= len; i += 16) {
+            vst1q_u8(dst + i, vld1q_u8(src + i));
+        }
+
+        if (i < len) {
+            const uint8x16_t v = vld1q_u8(src + len - 16);
+            vst1q_u8(dst + len - 16, v);
+        }
 #else
-        const auto dst_b = reinterpret_cast<Uint8*>(dst);
-        const auto src_b = reinterpret_cast<const Uint8*>(src);
         for (Ulen i = 0; i < len; i++) {
-            dst_b[i] = src_b[i];
+            dst[i] = src[i];
         }
 #endif
     }

@@ -56,4 +56,10 @@
 // These are debug build options
 //#define CTL_CFG_USE_MALLOC 1
 
+#if defined(__x86_64__) || defined(_M_X64)
+    #define CTL_ARCH_X64
+#elif defined(__aarch64__) || defined(_M_ARM64)
+    #define CTL_ARCH_ARM64
+#endif
+
 #endif // CTL_INFO_H
