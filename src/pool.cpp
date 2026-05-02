@@ -50,8 +50,8 @@ namespace ctl {
 	if (header.version != 1) {
             return {};
 	}
-	const auto n_words = header.capacity / BITS;
-	const auto n_bytes = header.size * header.capacity;
+	const auto n_words = static_cast<Ulen>(header.capacity / BITS);
+	const auto n_bytes = static_cast<Ulen>(header.size * header.capacity);
 	auto used = allocator.allocate<Word>(n_words, false);
 	auto data = allocator.allocate<Uint8>(n_bytes, false);
 	if (!used || !data) {

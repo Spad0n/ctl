@@ -1,6 +1,7 @@
-#include <string.h> // TODO: remove
-#include <stdio.h>  // TODO: remove
-#include <float.h>
+#define STB_SPRINTF_STATIC
+#define STB_SPRINTF_IMPLEMENTATION
+#include "third_party/stb_sprintf.h"
+#include <stdarg.h>
 
 #include "ctl/string.hpp"
 #include "ctl/stream.hpp"
@@ -49,8 +50,9 @@ namespace ctl {
     }
 
     void StringBuilder::put(Float64 value) {
-	char buffer[DBL_MANT_DIG + DBL_DECIMAL_DIG * 2 + 1];
-	auto n = snprintf(buffer, sizeof buffer, "%g", value);
+	//char buffer[DBL_MANT_DIG + DBL_DECIMAL_DIG * 2 + 1];
+        char buffer[STB_SPRINTF_MIN];
+	auto n = stbsp_snprintf(buffer, sizeof buffer, "%g", value);
 	if (n <= 0) {
             error_ = true;
             return;
@@ -136,5 +138,31 @@ namespace ctl {
 
     void StringBuilder::clear() {
         build_.clear();
+    }
+
+    struct FmtCtx {
+        StringBuilder* sb;
+        char           pad[STB_SPRINTF_MIN];
+    };
+
+    static char *fmt_callback(const char *buf, void *user, int len) {
+        auto *ctx = static_cast<FmtCtx*>(user);
+        ctx->sb->put(StringView{ buf, Ulen(len) });
+        return ctx->pad;
+    }
+
+    Bool StringBuilder::vformat(const char *fmt, void *va_ptr) {
+        FmtCtx ctx{ this, {} };
+        va_list& va = *reinterpret_cast<va_list*>(va_ptr);
+        const auto n = stbsp_vsprintfcb(&fmt_callback, &ctx, ctx.pad, fmt, va);
+        return n >= 0 && !error_;
+    }
+
+    Bool StringBuilder::format(const char *fmt, ...) {
+        va_list va;
+        va_start(va, fmt);
+        const auto ok = vformat(fmt, &va);
+        va_end(va);
+        return ok;
     }
 } // namespace ctl

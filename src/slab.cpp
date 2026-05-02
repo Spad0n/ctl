@@ -28,7 +28,7 @@ namespace ctl {
             return {};
 	}
 	ScratchAllocator<1024> scratch{allocator};
-	auto n_words = header.capacity / 32;
+	auto n_words = static_cast<Ulen>(header.capacity / 32);
 	auto used = scratch.allocate<Uint32>(n_words, true);
 	if (!used) {
             return {};

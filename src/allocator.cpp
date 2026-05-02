@@ -6,11 +6,14 @@
 #endif
 
 #if defined(CTL_ARCH_X64)
-#include <emmintrin.h>
-#pragma message("INFO: Using SIMD x86_64")
+    #include <emmintrin.h>
+    #pragma message("INFO: Using SIMD x86_64")
 #elif defined(CTL_ARCH_ARM64)
-#include <arm_neon.h>
-#pragma message("INFO: Using SIMD ARM64")
+    #include <arm_neon.h>
+    #pragma message("INFO: Using SIMD ARM64")
+#elif defined(CTL_ARCH_WASM) && defined(__wasm_simd128__)
+    #include <wasm_simd128.h>
+    #pragma message("INFO: Using SIMD WebAssembly v128")
 #endif
 
 #if CTL_HAS_FEATURE(address_sanitizer) && defined(__SANITIZE_ADDRESS__)
@@ -99,6 +102,33 @@ namespace ctl {
         if (i < len) {
             vst1q_u8(dst + len - 16, zero);
         }
+#elif defined(CTL_ARCH_WASM)
+    #if defined(__wasm_bulk_memory__)
+        __builtin_memset(dst, 0, len);
+    #elif defined(__wasm_simd128__)
+        const v128_t zero = wasm_i8x16_splat(0);
+        Ulen i = 0;
+        for (; i + 64 <= len; i += 64) {
+            wasm_v128_store(dst + i,      zero);
+            wasm_v128_store(dst + i + 16, zero);
+            wasm_v128_store(dst + i + 32, zero);
+            wasm_v128_store(dst + i + 48, zero);
+        }
+        for (; i + 16 <= len; i += 16) {
+            wasm_v128_store(dst + i, zero);
+        }
+        if (i < len) {
+            wasm_v128_store(dst + len - 16, zero);
+        }
+    #else
+        // Scalar fallback for unknown architectures: word + byte loop
+        const auto n_words = len / sizeof(Uint64);
+        const auto n_bytes = len % sizeof(Uint64);
+        const auto dst_w = reinterpret_cast<Uint64*>(dst);
+        const auto dst_b = reinterpret_cast<Uint8*>(dst_w + n_words);
+        for (Ulen i = 0; i < n_words; i++) dst_w[i] = 0_u64;
+        for (Ulen i = 0; i < n_bytes; i++) dst_b[i] = 0_u8;
+    #endif
 #else
         // Scalar fallback for unknown architectures: word + byte loop
         const auto n_words = len / sizeof(Uint64);
@@ -180,6 +210,34 @@ namespace ctl {
             const uint8x16_t v = vld1q_u8(src + len - 16);
             vst1q_u8(dst + len - 16, v);
         }
+#elif defined(CTL_ARCH_WASM)
+    #if defined(__wasm_bulk_memory__)
+        __builtin_memcpy(dst, src, len);
+    #elif defined(__wasm_simd128__)
+        Ulen i = 0;
+        for (; i + 64 <= len; i += 64) {
+            const v128_t a = wasm_v128_load(src + i);
+            const v128_t b = wasm_v128_load(src + i + 16);
+            const v128_t c = wasm_v128_load(src + i + 32);
+            const v128_t d = wasm_v128_load(src + i + 48);
+            wasm_v128_store(dst + i,      a);
+            wasm_v128_store(dst + i + 16, b);
+            wasm_v128_store(dst + i + 32, c);
+            wasm_v128_store(dst + i + 48, d);
+        }
+        for (; i + 16 <= len; i += 16) {
+            wasm_v128_store(dst + i, wasm_v128_load(src + i));
+        }
+
+        if (i < len) {
+            const v128_t v = wasm_v128_load(src + len - 16);
+            wasm_v128_store(dst + len - 16, v);
+        }
+    #else
+        for (Ulen i = 0; i < len; i++) {
+            dst[i] = src[i];
+        }
+    #endif
 #else
         for (Ulen i = 0; i < len; i++) {
             dst[i] = src[i];

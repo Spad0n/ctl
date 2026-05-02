@@ -69,6 +69,11 @@ namespace ctl {
 
         /// @brief Clears content (alias for reset).
         void clear();
+
+        Bool vformat(const char *fmt, void *va_ptr);
+
+        Bool format(const char *fmt, ...) CTL_FORMAT_PRINTF(2, 3);
+
     private:
 	Array<char> build_;
 	Bool        error_ = false;
